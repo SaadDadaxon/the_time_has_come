@@ -17,7 +17,8 @@ class Database:
             user=config.DB_USER,
             password=config.DB_PASS,
             host=config.DB_HOST,
-            database=config.DB_NAME
+            database=config.DB_NAME,
+            port=5432   # Shu qo'shilgan qism
         )
 
     async def execute(self, command, *args,

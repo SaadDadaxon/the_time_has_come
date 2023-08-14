@@ -1,11 +1,15 @@
 from datetime import datetime
 import asyncio
 import random
-from keyboards.inline.inline import ulashish
+
+from aiogram.dispatcher import FSMContext
+
+from keyboards.inline.inline import ulashish, post_callback, confirmation
 import requests
 from aiogram import types
 from data.config import ADMINS
 from loader import dp, db, bot
+from states.reklama import Advertising
 
 
 @dp.message_handler(text='/users_hadis', user_id=ADMINS)
@@ -30,16 +34,58 @@ async def user_to_hadis(message: types.Message):
         await bot.send_message(chat_id=group[2], text=txt, reply_markup=ulashish)
 
 
-@dp.message_handler(text="/advertising_user", user_id=ADMINS)
+@dp.message_handler(text="/reklama", user_id=ADMINS)
 async def send_ad_to_all(message: types.Message):
-    txt = str()
-    txt += f"Assalom Alaykum Siz Bu bot orqali o'z mahsulotlaringizni reklama qilishingiz mumkin"
-    txt += f"Reklama qilish Narxlari https://t.me/@Dadaxon_Saad ga Murojat qilishingiz mumkin!"
-    users = await db.select_all_users()
-    for user in users:
-        image = open("image/photo_2022-11-13_22-40-34.jpg", "rb")
-        user_id = user[3]
-        await bot.send_photo(chat_id=user_id, caption=txt, reply_markup=ulashish, photo=image)
+    await message.answer(f"Reklamani Rasmsini yuboring!")
+    await Advertising.PHOTO.set()
+
+@dp.message_handler(state=Advertising.PHOTO, user_id=ADMINS, content_types=types.ContentType.ANY)
+async def send_ad_to_all(message: types.Message, state: FSMContext):
+    try:
+        photo = message.photo
+        await state.update_data(photo=photo)
+        await message.answer(f"Reklamani Textni yuboring!")
+        await Advertising.MESSAGE.set()
+    except Exception as err:
+        print(err)
+
+@dp.message_handler(state=Advertising.MESSAGE, user_id=ADMINS, content_types=types.ContentType.ANY)
+async def send_ad_to_all(message: types.Message, state: FSMContext):
+    try:
+        msg = message.html_text
+        await state.update_data(msg=msg)
+        await message.answer(f'Reklamani foydalanuvchilarga yuboraymi?', reply_markup=confirmation)
+        await Advertising.CONFIRM.set()
+    except Exception as err:
+        print(err)
+
+@dp.callback_query_handler(post_callback.filter(action='post'), state=Advertising.CONFIRM, user_id=ADMINS)
+async def send_ad_to_all(call: types.CallbackQuery, state: FSMContext):
+    try:
+        async with state.proxy() as data:
+            photo = data.get("photo")
+            msg = data.get("msg")
+        await state.finish()
+        users = await db.select_all_users()
+        for user in users:
+            await bot.send_photo(chat_id=user[3], photo=photo[-1].file_id, caption=msg)
+        await bot.send_message(chat_id=ADMINS[0], text=f"Foydalanuvchilarga Reklama yuborildi!")
+    except Exception as e:
+        print(e)
+
+@dp.callback_query_handler(state=Advertising.CONFIRM, user_id=ADMINS)
+async def send_ad_to_all(call: types.CallbackQuery):
+    await call.message.answer(f"Ha Yoki Yoq Tugmasini Bosing!", reply_markup=confirmation)
+
+@dp.callback_query_handler(post_callback.filter(action='cancel'), state=Advertising.CONFIRM, user_id=ADMINS)
+async def delete_cancel(call: types.CallbackQuery, state: FSMContext):
+    try:
+        await state.finish()
+        await call.answer(f"Reklama O'chirildi")
+        await call.message.delete()
+    except Exception as a:
+        print(a)
+        return
 
 
 @dp.message_handler(text="/admin_commands", user_id=ADMINS)
