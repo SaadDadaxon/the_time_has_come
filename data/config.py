@@ -5,11 +5,11 @@ env = Env()
 env.read_env()
 
 # .env fayl ichidan quyidagilarni o'qiymiz
-BOT_TOKEN = env.str("BOT_TOKEN")  # Bot toekn
-ADMINS = env.list("ADMINS")  # adminlar ro'yxati
-IP = env.str("ip")  # Xosting ip manzili
+BOT_TOKEN = "5966956630:AAFr7iVMop_rKd-UPMoAYxOMjupCKIkzXEA"  # Bot toekn
+ADMINS = [1004294567, ]  # adminlar ro'yxati
+IP = "localhost"  # Xosting ip manzili
 
-DB_USER = env.str("DB_USER")
-DB_PASS = env.str("DB_PASS")
-DB_NAME = env.str("DB_NAME")
-DB_HOST = env.str("DB_HOST")
+DB_USER = "nomoz"
+DB_PASS = "31518"
+DB_NAME = "nomoz"
+DB_HOST = "localhost"
