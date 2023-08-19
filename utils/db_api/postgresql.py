@@ -85,8 +85,8 @@ class Database:
         sql = "UPDATE Users SET user_region=$1 WHERE telegram_id=$2"
         return await self.execute(sql, user_region, telegram_id, execute=True)
 
-    async def delete_users(self):
-        await self.execute("DELETE FROM Users WHERE TRUE", execute=True)
+    async def delete_user_by_id(self, id):
+        return await self.execute("DELETE FROM Users WHERE id = $1", id, execute=True)
 
     async def drop_users(self):
         await self.execute("DROP TABLE Users", execute=True)

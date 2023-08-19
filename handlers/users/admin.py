@@ -1,12 +1,12 @@
+import logging
 from datetime import datetime
 import asyncio
 import random
-
 from aiogram.dispatcher import FSMContext
 
 from keyboards.inline.inline import ulashish, post_callback, confirmation
 import requests
-from aiogram import types
+from aiogram import types, exceptions
 from data.config import ADMINS
 from loader import dp, db, bot
 from states.reklama import Advertising
@@ -59,19 +59,31 @@ async def send_ad_to_all(message: types.Message, state: FSMContext):
     except Exception as err:
         print(err)
 
+
 @dp.callback_query_handler(post_callback.filter(action='post'), state=Advertising.CONFIRM, user_id=ADMINS)
 async def send_ad_to_all(call: types.CallbackQuery, state: FSMContext):
-    try:
-        async with state.proxy() as data:
-            photo = data.get("photo")
-            msg = data.get("msg")
-        await state.finish()
-        users = await db.select_all_users()
-        for user in users:
-            await bot.send_photo(chat_id=user[3], photo=photo[-1].file_id, caption=msg)
+    async with state.proxy() as data:
+        photo = data.get("photo")
+        msg = data.get("msg")
+    await state.finish()
+    users = await db.select_all_users()
+
+    unsuccessful_users = []  # Bu ro'yxatga muvaffaqiyatsiz yuborilgan xabarlarni kiritamiz
+
+    for user in users:
+        try:
+            await bot.send_photo(chat_id=int(user[3]), photo=photo[-1].file_id, caption=msg)
+        except (exceptions.BotBlocked, exceptions.UserDeactivated) as e:
+            unsuccessful_users.append(user[3])
+            await db.delete_user_by_id(user[0])
+
+    if unsuccessful_users:
+        # Agar muvaffaqiyatsiz yuborilgan xabarlaringiz bo'lsa, adminlarga yuborish
+        await bot.send_message(chat_id=ADMINS[0],
+                               text=f"Muvaffaqiyatsiz yuborilgan va bazadan o'chirilgan foydalanuvchilar: {unsuccessful_users}")
+    else:
         await bot.send_message(chat_id=ADMINS[0], text=f"Foydalanuvchilarga Reklama yuborildi!")
-    except Exception as e:
-        print(e)
+
 
 @dp.callback_query_handler(state=Advertising.CONFIRM, user_id=ADMINS)
 async def send_ad_to_all(call: types.CallbackQuery):

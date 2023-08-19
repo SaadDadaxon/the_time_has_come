@@ -8,8 +8,7 @@ bosh_menu = ReplyKeyboardMarkup(
             KeyboardButton(text='📜Hadis')
         ],
         [
-            KeyboardButton(text='🕰Nomoz Vaqtlari'),
-            KeyboardButton(text="📜Hadis qo'shish➕")
+            KeyboardButton(text='🕰Nomoz Vaqtlari')
         ]
         # [
         #     KeyboardButton(text='⚙Bot Haqida')
