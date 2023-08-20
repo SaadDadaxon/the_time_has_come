@@ -9,6 +9,7 @@ import requests
 from aiogram import types, exceptions
 from data.config import ADMINS
 from loader import dp, db, bot
+from states.group_rek import AdvertisingREK
 from states.reklama import Advertising
 
 
@@ -85,9 +86,9 @@ async def send_ad_to_all(call: types.CallbackQuery, state: FSMContext):
         await bot.send_message(chat_id=ADMINS[0], text=f"Foydalanuvchilarga Reklama yuborildi!")
 
 
-@dp.callback_query_handler(state=Advertising.CONFIRM, user_id=ADMINS)
-async def send_ad_to_all(call: types.CallbackQuery):
-    await call.message.answer(f"Ha Yoki Yoq Tugmasini Bosing!", reply_markup=confirmation)
+@dp.message_handler(state=Advertising.CONFIRM, user_id=ADMINS)
+async def send_ad_to_all(ms: types.Message):
+    await ms.answer(f"Ha Yoki Yoq Tugmasini Bosing!", reply_markup=confirmation)
 
 @dp.callback_query_handler(post_callback.filter(action='cancel'), state=Advertising.CONFIRM, user_id=ADMINS)
 async def delete_cancel(call: types.CallbackQuery, state: FSMContext):
@@ -102,8 +103,8 @@ async def delete_cancel(call: types.CallbackQuery, state: FSMContext):
 
 @dp.message_handler(text="/admin_commands", user_id=ADMINS)
 async def send_ad_to_all(message: types.Message):
-    command = f"/advertising_user\n"
-    command += f"/advertising_group\n"
+    command = f"/reklama\n"
+    command += f"/reklama_gr\n"
     command += f"/user_prayer_time\n"
     command += f"/group_prayer_time\n"
     command += f"/count_user\n"
@@ -225,3 +226,72 @@ async def count_user(ms: types.Message):
     group_info = await db.select_all_group()
     for info in group_info:
         await ms.answer(f"Guruhning full_name: {info[1]}\n")
+
+
+@dp.message_handler(text="/reklamagroup", user_id=ADMINS[0])
+async def send_ad_to_all(message: types.Message):
+    await message.answer(f"Reklamani Rasmsini yuboring!")
+    await AdvertisingREK.PHOTO.set()
+
+
+@dp.message_handler(state=AdvertisingREK.PHOTO, user_id=ADMINS[0], content_types=types.ContentType.ANY)
+async def send_ad_to_all(message: types.Message, state: FSMContext):
+    try:
+        photo = message.photo
+        await state.update_data(photo=photo)
+        await message.answer(f"Reklamani Textni yuboring!")
+        await AdvertisingREK.MESSAGE.set()
+    except Exception as err:
+        print(err)
+
+
+@dp.message_handler(state=AdvertisingREK.MESSAGE, user_id=ADMINS[0], content_types=types.ContentType.ANY)
+async def send_ad_to_all(message: types.Message, state: FSMContext):
+    try:
+        msg = message.html_text
+        await state.update_data(msg=msg)
+        await message.answer(f'Reklamani foydalanuvchilarga yuboraymi?', reply_markup=confirmation)
+        await AdvertisingREK.CONFIRM.set()
+    except Exception as err:
+        print(err)
+
+
+@dp.callback_query_handler(post_callback.filter(action='post'), state=AdvertisingREK.CONFIRM, user_id=ADMINS[0])
+async def send_ad_to_all(call: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        photo = data.get("photo")
+        msg = data.get("msg")
+    await state.finish()
+    groups = await db.select_all_group()
+
+    unsuccessful_users = []  # Bu ro'yxatga muvaffaqiyatsiz yuborilgan xabarlarni kiritamiz
+
+    for group in groups:
+        try:
+            await bot.send_photo(chat_id=int(group[2]), photo=photo[-1].file_id, caption=msg)
+        except (exceptions.BotBlocked, exceptions.UserDeactivated) as e:
+            unsuccessful_users.append(group[1])
+            await db.delete_group(group[0])
+
+    if unsuccessful_users:
+        # Agar muvaffaqiyatsiz yuborilgan xabarlaringiz bo'lsa, adminlarga yuborish
+        await bot.send_message(chat_id=ADMINS[0],
+                               text=f"Muvaffaqiyatsiz yuborilgan va bazadan o'chirilgan gruhlar: {unsuccessful_users}")
+    else:
+        await bot.send_message(chat_id=ADMINS[0], text=f"Gruhlarga Reklama yuborildi!")
+
+
+@dp.message_handler(state=AdvertisingREK.CONFIRM, user_id=ADMINS[0])
+async def send_ad_to_all(ms: types.Message):
+    await ms.answer(f"Ha Yoki Yoq Tugmasini Bosing!", reply_markup=confirmation)
+
+
+@dp.callback_query_handler(post_callback.filter(action='cancel'), state=AdvertisingREK.CONFIRM, user_id=ADMINS[0])
+async def delete_cancel(call: types.CallbackQuery, state: FSMContext):
+    try:
+        await state.finish()
+        await call.answer(f"Reklama O'chirildi")
+        await call.message.delete()
+    except Exception as a:
+        print(a)
+        return

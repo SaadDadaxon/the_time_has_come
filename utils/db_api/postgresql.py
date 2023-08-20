@@ -134,8 +134,8 @@ class Database:
         sql = "UPDATE Group_s SET group_region=$1 WHERE group_id=$2"
         return await self.execute(sql, group_region, group_id, execute=True)
 
-    async def delete_group(self):
-        await self.execute("DELETE FROM Group_s WHERE TRUE", execute=True)
+    async def delete_group(self, id):  # group_id argumentini qo'shing
+        await self.execute(f"DELETE FROM Group_s WHERE id = {id}", execute=True)
 
     async def drop_group(self):
         await self.execute("DROP TABLE Group_s", execute=True)
